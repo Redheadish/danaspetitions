@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME = 'danaspetitions'
+        TOMCAT_WEBAPPS = '/opt/tomcat/webapps'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Redheadish/danaspetitions.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+
+        stage('Archive WAR') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input message: 'Deploy to Tomcat on EC2?'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh """
+                    sudo rm -rf ${TOMCAT_WEBAPPS}/${APP_NAME}
+                    sudo rm -f ${TOMCAT_WEBAPPS}/${APP_NAME}.war
+                    sudo cp target/${APP_NAME}.war ${TOMCAT_WEBAPPS}/
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed. Check the stage logs.'
+        }
+    }
+}
